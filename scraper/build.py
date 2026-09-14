@@ -370,10 +370,6 @@ def _virtual_problem_from_arxiv(rec: dict) -> dict:
         "_erdos":          None,
         "_review":         rec.get("_review"),
         "_llm_attack":     rec.get("_llm_attack"),
-        "_display_status": (
-            "ill-posed" if rec.get("_llm_attack")
-            else (rec.get("_review") or {}).get("status")
-        ),
         "_review_id":      rec.get("_review_id"),
         "_nice_name":      nice_name,
         "_paper_label":    paper_label,
@@ -738,7 +734,7 @@ def main(argv: list[str] | None = None) -> int:
     arxiv_review_status_counts: dict[str, int] = {}
     for r in arxiv_rows:
         if r.get("_review"):
-            s = r.get("_display_status") or r["_review"].get("status", "unclear")
+            s = r["_review"].get("status", "unclear")
             arxiv_review_status_counts[s] = arxiv_review_status_counts.get(s, 0) + 1
 
     bm_review_count = sum(1 for r in bm_rows if r.get("_review"))

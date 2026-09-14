@@ -151,7 +151,6 @@ table.problems-table th.sorted-desc::after { content: ' ▼'; font-size: 0.7em; 
 .status-solved    { background: #d8efe1; color: #1f7a3a; }
 .status-disproved { background: #fadbd8; color: #b03030; }
 .status-unclear   { background: #ececec; color: #555; }
-.status-ill-posed { background: #f9d9e8; color: #9b285e; }
 .attack-badge {
   display: inline-block;
   margin-left: 0.2rem;

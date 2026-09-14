@@ -9,11 +9,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scraper"))
 
 from sync_llm_proof_results import collect_ill_posed  # noqa: E402
+from build import _virtual_problem_from_arxiv  # noqa: E402
 
 
 class LlmProofResultTests(unittest.TestCase):
+    def test_ill_posed_is_a_tag_and_does_not_replace_status(self):
+        review = {"status": "open"}
+        attack = {"verdict": "ill_posed"}
+        row = _virtual_problem_from_arxiv({
+            "arxiv_id": "2600.00001",
+            "paper_authors": [],
+            "_review": review,
+            "_llm_attack": attack,
+        })
+        self.assertEqual(row["_review"]["status"], "open")
+        self.assertIs(row["_llm_attack"], attack)
+        self.assertNotIn("_display_status", row)
+
     def test_collects_only_ill_posed_results(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)

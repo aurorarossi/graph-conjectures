@@ -62,7 +62,7 @@ The project code is MIT licensed; data derived from OPG remains under the GFDL.<
 {%- endfor %}
 </li>
 <li>arXiv review statuses:
-{% for s in ['open','partial','solved','disproved','unclear','ill-posed'] -%}
+{% for s in ['open','partial','solved','disproved','unclear'] -%}
   {% if arxiv_review_status_counts.get(s) -%}
     <span class="status-badge status-{{ s }}">{{ s }} {{ arxiv_review_status_counts[s] }}</span>
   {%- endif %}
