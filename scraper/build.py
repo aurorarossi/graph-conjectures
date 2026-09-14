@@ -7,6 +7,7 @@ Inputs:
   data/intersection.json        (optional)
   data/arxiv_conjectures.json   (optional; produced by scripts/arxiv_aggregate.py)
   data/arxiv_opg_matches.json   (optional; same)
+  data/llm_proof_results.json   (optional; produced by scripts/sync_llm_proof_results.py)
   data/arxiv_authors.json       (optional; used for the author-slug → display-name map)
 
 Outputs:
@@ -79,6 +80,53 @@ def _build_search_text(p: dict) -> str:
         if p.get("posted_by"):
             parts.append(p["posted_by"].get("name", ""))
     return " ".join(parts).lower().replace('"', "").replace("'", "")
+
+
+def _review_with_known_resolution(review: dict | None, result: dict,
+                                  disclaimer: str) -> dict:
+    """Overlay a literature resolution while retaining existing citations."""
+    merged = dict(review or {})
+    article_url = result.get("article_url", "")
+    existing = next(
+        (r for r in (merged.get("since_posted") or []) if r.get("url") == article_url),
+        {},
+    )
+    refs = [
+        r for r in (merged.get("since_posted") or [])
+        if r.get("url") != article_url and not r.get("_known_resolution")
+    ]
+    arxiv_match = re.search(r"arxiv\.org/abs/(\d{2})", article_url)
+    article_year = 2000 + int(arxiv_match.group(1)) if arxiv_match else None
+    resolution_ref = dict(existing)
+    resolution_ref.update({
+        "title": result.get("article_title", ""),
+        "authors": existing.get("authors", "See linked article"),
+        "year": existing.get("year") or article_year,
+        "venue": existing.get("venue", "Existing literature or final source version"),
+        "url": article_url,
+        "doi": existing.get("doi"),
+        "arxiv_id": existing.get("arxiv_id"),
+        "kind": "counterexample" if result.get("site_status") == "disproved" else "proof",
+        "claim": result.get("one_line", ""),
+        "_known_resolution": True,
+        "_audit_url": result.get("audit_url", ""),
+    })
+    refs.insert(0, resolution_ref)
+    notes = " ".join(filter(None, [
+        disclaimer,
+        ("Audit caveat: " + result["caveats"]) if result.get("caveats") else "",
+    ]))
+    merged.update({
+        "status": result.get("site_status", "solved"),
+        "confidence": result.get("confidence", "high"),
+        "summary": result.get("one_line", ""),
+        "since_posted": refs,
+        "notes": notes,
+        "reviewed_at": result.get("assessed_at", "")[:10],
+        "model": result.get("model", ""),
+        "search_enabled": False,
+    })
+    return merged
 
 
 def _year_from_date(s: str | None) -> int | None:
@@ -361,6 +409,7 @@ def _virtual_problem_from_arxiv(rec: dict) -> dict:
         "canonical_url":   rec.get("abs_url", f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else ""),
         "_erdos":          None,
         "_review":         rec.get("_review"),
+        "_known_resolution": rec.get("_known_resolution"),
         "_review_id":      rec.get("_review_id"),
         "_nice_name":      nice_name,
         "_paper_label":    paper_label,
@@ -530,9 +579,23 @@ def main(argv: list[str] | None = None) -> int:
     # paper-local index, then attach the matching arxiv review JSON if present.
     arxiv_reviews_dir = args.data_dir / "arxiv_reviews"
     arxiv_names_dir   = args.data_dir / "arxiv_names"
+    llm_results_path  = args.data_dir / "llm_proof_results.json"
+    llm_results_doc = (
+        json.loads(llm_results_path.read_text(encoding="utf-8"))
+        if llm_results_path.exists() else {}
+    )
+    known_resolutions = llm_results_doc.get("results", []) if isinstance(llm_results_doc, dict) else []
+    known_resolutions_by_id = {
+        result["id"]: result for result in known_resolutions
+        if isinstance(result, dict) and result.get("id")
+    }
+    llm_disclaimer = (
+        llm_results_doc.get("disclaimer", "") if isinstance(llm_results_doc, dict) else ""
+    )
     counters: dict[str, int] = {}
     n_reviews_attached = 0
     n_names_attached   = 0
+    n_known_resolutions_attached = 0
     for s in arxiv_states:
         sid = s.get("safe_id") or s.get("arxiv_id","").replace("/","_")
         idx = counters.get(sid, 0)
@@ -558,8 +621,21 @@ def main(argv: list[str] | None = None) -> int:
                         n_names_attached += 1
                 except Exception as e:  # noqa: BLE001
                     log.warning("could not load arxiv name %s: %s", np_.name, e)
+        if s["_review_id"] in known_resolutions_by_id:
+            s["_known_resolution"] = known_resolutions_by_id[s["_review_id"]]
+            s["_review"] = _review_with_known_resolution(
+                s.get("_review"), s["_known_resolution"], llm_disclaimer,
+            )
+            n_known_resolutions_attached += 1
     log.info("attached %d arxiv reviews and %d nice names to states records",
              n_reviews_attached, n_names_attached)
+    matched_resolution_ids = {
+        s["_review_id"] for s in arxiv_states if s.get("_known_resolution")
+    }
+    unmatched_resolutions = set(known_resolutions_by_id) - matched_resolution_ids
+    if unmatched_resolutions:
+        log.warning("known resolutions do not match arXiv records: %s", sorted(unmatched_resolutions))
+    log.info("attached %d known literature resolution(s)", n_known_resolutions_attached)
 
     # ── load Bondy–Murty Appendix A data (optional) ────────────────────────────
     bm_path        = args.data_dir / "bondy_murty_conjectures.json"
