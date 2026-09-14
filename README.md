@@ -17,6 +17,14 @@ and connected by a **relation graph** of AI-reviewed implications,
 equivalences, and duplicates, browsable interactively on the site
 ([details](#relations-between-conjectures)).
 
+The site also imports literature-status corrections from the `already_resolved`
+results in
+[Graph-Theory-LLM-Proofs](https://github.com/graph-theory-AI/Graph-Theory-LLM-Proofs).
+They appear as `solved` or `disproved` according to the result, with a reference
+to the existing article credited for the resolution and a separate link to the
+automated audit. No model-generated proof is promoted to `solved`. Refresh the
+data from sibling checkouts with `python scripts/sync_llm_proof_results.py`.
+
 **Four corpora, one merged index:**
 
 | corpus | count | scope |
