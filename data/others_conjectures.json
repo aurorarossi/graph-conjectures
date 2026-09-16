@@ -30,7 +30,7 @@
       }
     ],
     "workstream": "problems/meyniels_conjecture",
-    "notes": "Stated by Meyniel in a 1985 personal communication to Frankl and first published in P. Frankl, 'Cops and robbers in graphs with large girth and Cayley graphs', Discrete Appl. Math. 17 (1987). Not in the corpus before this record: Open Problem Garden has no Cops and Robbers page, and the arXiv-extracted records that cite the conjecture were matched against OPG and manually rejected. The workstream approaches the conjecture from the disproof side (what a counterexample would have to look like).",
+    "notes": "Stated by Meyniel in a 1985 personal communication to Frankl and first published in P. Frankl, 'Cops and robbers in graphs with large girth and Cayley graphs', Discrete Appl. Math. 17 (1987). Not in the corpus before this record: Open Problem Garden has no Cops and Robbers page, so the candidate OPG cross-links that the fuzzy matcher proposed for the arXiv-extracted records citing this conjecture were all refused in triage (they carry `manual_rejected` in data/arxiv_opg_matches.json). Those arXiv records remain in the corpus; only the link to an OPG page was withheld, because no such page exists. The workstream approaches the conjecture from the disproof side (what a counterexample would have to look like).",
     "source": {
       "title": "problems/meyniels_conjecture — self-contained workstream in this repository",
       "url": "https://github.com/graph-theory-AI/graph-conjectures/tree/main/problems/meyniels_conjecture",

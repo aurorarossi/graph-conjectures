@@ -68,7 +68,7 @@ def _author_slug_from_name(name: str) -> str:
 def _build_search_text(p: dict) -> str:
     """Lowercase concatenation of all searchable text for a row (used by index filter)."""
     parts = [p.get("title", ""), "source:" + p.get("_source", "opg")]
-    if p.get("_source") in ("arxiv", "bm", "curated"):
+    if p.get("_source") in ("arxiv", "bm", "others"):
         parts += [p.get("statement_text", "")]
         parts += [a.get("label", "") for a in p.get("authors", [])]
         parts += [p.get("attributed_to", ""), p.get("kind", ""), p.get("section", "")]
@@ -224,8 +224,8 @@ def _timeline_row(
     elif source == "bm":
         url = f"bm/{item.get('bm_id', '')}/"
         subtitle = f"Bondy–Murty, Graph Theory, Appendix A, item {item.get('appendix_number')}"
-    elif source == "curated":
-        url = f"curated/{item.get('slug', '')}/"
+    elif source == "others":
+        url = f"others/{item.get('slug', '')}/"
         subtitle = item.get("workstream", "")
     else:
         url = f"op/{item.get('slug', '')}/"
@@ -259,7 +259,7 @@ def _build_timeline_rows(
     problems: list[dict],
     arxiv_rows: list[dict],
     bm_rows: list[dict] | None = None,
-    curated_rows: list[dict] | None = None,
+    others_rows: list[dict] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     rows: list[dict] = []
     for problem in problems:
@@ -292,13 +292,13 @@ def _build_timeline_rows(
         if row:
             rows.append(row)
 
-    for c_row in curated_rows or []:
+    for c_row in others_rows or []:
         review = c_row.get("_review")
         if not review or review.get("status") not in {"solved", "disproved"}:
             continue
 
         start_year, start_basis = _claim_year_for_bm(c_row)
-        row = _timeline_row(c_row, review, start_year, start_basis, "curated")
+        row = _timeline_row(c_row, review, start_year, start_basis, "others")
         if row:
             rows.append(row)
 
@@ -417,12 +417,12 @@ def _virtual_problem_from_arxiv(rec: dict) -> dict:
 
 
 def _virtual_problem_from_bm(rec: dict, source: str = "bm") -> dict:
-    """Project a hand-curated record into the same row shape as an OPG problem,
+    """Project a hand-written record into the same row shape as an OPG problem,
     so the index, timeline and relation machinery can treat every corpus alike.
 
     `source == "bm"`: a Bondy–Murty Appendix A item (data/bondy_murty_conjectures.json,
-    id in `bm_id`). `source == "curated"`: a workstream conjecture
-    (data/curated_conjectures.json, id in `id`, optional `workstream` path)."""
+    id in `bm_id`). `source == "others"`: a workstream conjecture
+    (data/others_conjectures.json, id in `id`, optional `workstream` path)."""
     bm_id      = rec.get("bm_id") or rec["id"]
     src        = rec.get("source") or {}
     attributed = rec.get("attributed_to", "") or ""
@@ -655,23 +655,23 @@ def main(argv: list[str] | None = None) -> int:
                 log.warning("could not load Bondy–Murty review %s: %s", rp.name, e)
     log.info("loaded %d Bondy–Murty record(s), %d with a review", len(bm_records), n_bm_reviews)
 
-    # ── load hand-curated workstream conjectures (optional) ────────────────────
-    curated_path        = args.data_dir / "curated_conjectures.json"
-    curated_reviews_dir = args.data_dir / "curated_reviews"
-    curated_records = (
-        json.loads(curated_path.read_text(encoding="utf-8"))
-        if curated_path.exists() else []
+    # ── load hand-written "others" workstream conjectures (optional) ───────────
+    others_path        = args.data_dir / "others_conjectures.json"
+    others_reviews_dir = args.data_dir / "others_reviews"
+    others_records = (
+        json.loads(others_path.read_text(encoding="utf-8"))
+        if others_path.exists() else []
     )
-    n_curated_reviews = 0
-    for rec in curated_records:
-        rp = curated_reviews_dir / f"{rec['id']}.json"
+    n_others_reviews = 0
+    for rec in others_records:
+        rp = others_reviews_dir / f"{rec['id']}.json"
         if rp.exists():
             try:
                 rec["_review"] = json.loads(rp.read_text(encoding="utf-8"))
-                n_curated_reviews += 1
+                n_others_reviews += 1
             except Exception as e:  # noqa: BLE001
-                log.warning("could not load curated review %s: %s", rp.name, e)
-    log.info("loaded %d curated record(s), %d with a review", len(curated_records), n_curated_reviews)
+                log.warning("could not load 'others' review %s: %s", rp.name, e)
+    log.info("loaded %d 'others' record(s), %d with a review", len(others_records), n_others_reviews)
 
     # Manually-curated set of confirmed cross-refs to erdosproblems.com.
     confirmed_intersection_slugs = {
@@ -701,11 +701,11 @@ def main(argv: list[str] | None = None) -> int:
     # ── virtualise Bondy–Murty records as rows ─────────────────────────────────
     bm_rows = [_virtual_problem_from_bm(r) for r in bm_records]
     log.info("built %d Bondy–Murty virtual row(s)", len(bm_rows))
-    curated_rows = [_virtual_problem_from_bm(r, source="curated") for r in curated_records]
-    log.info("built %d curated virtual row(s)", len(curated_rows))
+    others_rows = [_virtual_problem_from_bm(r, source="others") for r in others_records]
+    log.info("built %d 'others' virtual row(s)", len(others_rows))
 
     # ── compute _search for every row ──────────────────────────────────────────
-    for row in problems + arxiv_rows + bm_rows + curated_rows:
+    for row in problems + arxiv_rows + bm_rows + others_rows:
         row["_search"] = _build_search_text(row)
 
     # ── conjecture relation graph (optional; data/relations.json) ──────────────
@@ -745,7 +745,7 @@ def main(argv: list[str] | None = None) -> int:
             # arXiv extraction keeps definitions/background in context_text.
             "context":   row.get("context_text", ""),
         }
-    for row in bm_rows + curated_rows:
+    for row in bm_rows + others_rows:
         rel_node_meta[f"{row['_source']}:" + row["bm_id"]] = {
             "name":      row["title"],
             "status":    (row.get("_review") or {}).get("status"),
@@ -787,14 +787,14 @@ def main(argv: list[str] | None = None) -> int:
             s = r["_review"].get("status", "unclear")
             bm_review_status_counts[s] = bm_review_status_counts.get(s, 0) + 1
 
-    curated_review_count = sum(1 for r in curated_rows if r.get("_review"))
-    curated_review_status_counts: dict[str, int] = {}
-    for r in curated_rows:
+    others_review_count = sum(1 for r in others_rows if r.get("_review"))
+    others_review_status_counts: dict[str, int] = {}
+    for r in others_rows:
         if r.get("_review"):
             s = r["_review"].get("status", "unclear")
-            curated_review_status_counts[s] = curated_review_status_counts.get(s, 0) + 1
+            others_review_status_counts[s] = others_review_status_counts.get(s, 0) + 1
 
-    timeline_rows, timeline_ticks = _build_timeline_rows(problems, arxiv_rows, bm_rows, curated_rows)
+    timeline_rows, timeline_ticks = _build_timeline_rows(problems, arxiv_rows, bm_rows, others_rows)
     timeline_status_counts: dict[str, int] = {}
     timeline_source_counts: dict[str, int] = {}
     for row in timeline_rows:
@@ -804,7 +804,7 @@ def main(argv: list[str] | None = None) -> int:
         timeline_source_counts[src] = timeline_source_counts.get(src, 0) + 1
 
     rows_sorted = sorted(
-        problems + arxiv_rows + bm_rows + curated_rows,
+        problems + arxiv_rows + bm_rows + others_rows,
         key=lambda r: (
             -r.get("importance", {}).get("stars", 0),
             -(int(r.get("posted_at", "0000")[:4])
@@ -834,9 +834,9 @@ def main(argv: list[str] | None = None) -> int:
         "bm_count":             len(bm_rows),
         "bm_review_count":      bm_review_count,
         "bm_review_status_counts": bm_review_status_counts,
-        "curated_count":        len(curated_rows),
-        "curated_review_count": curated_review_count,
-        "curated_review_status_counts": curated_review_status_counts,
+        "others_count":        len(others_rows),
+        "others_review_count": others_review_count,
+        "others_review_status_counts": others_review_status_counts,
         "timeline_count":       len(timeline_rows),
         "timeline_status_counts": timeline_status_counts,
         "timeline_source_counts": timeline_source_counts,
@@ -856,8 +856,8 @@ def main(argv: list[str] | None = None) -> int:
         env.get_template("index.html").render(root="", rows=rows_sorted, **common),
         encoding="utf-8",
     )
-    log.info("wrote index.html (%d rows: %d OPG + %d arXiv + %d Bondy–Murty + %d curated)",
-             len(rows_sorted), len(problems), len(arxiv_rows), len(bm_rows), len(curated_rows))
+    log.info("wrote index.html (%d rows: %d OPG + %d arXiv + %d Bondy–Murty + %d others)",
+             len(rows_sorted), len(problems), len(arxiv_rows), len(bm_rows), len(others_rows))
 
     # Timeline of resolved OPG and arXiv conjectures
     timeline_dir = args.site_dir / "timeline"
@@ -946,8 +946,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         log.info("wrote %d arXiv page(s) under arxiv/", len(arxiv_rows))
 
-    # Bondy–Murty Appendix A and curated-workstream detail pages (shared template)
-    for corpus_rows, sub in ((bm_rows, "bm"), (curated_rows, "curated")):
+    # Bondy–Murty Appendix A and "others" workstream detail pages (shared template)
+    for corpus_rows, sub in ((bm_rows, "bm"), (others_rows, "others")):
         if not corpus_rows:
             continue
         bm_dir = args.site_dir / sub
