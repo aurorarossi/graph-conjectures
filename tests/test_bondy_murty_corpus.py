@@ -102,12 +102,12 @@ class BondyMurtyCorpusTests(unittest.TestCase):
                     )
 
 
-class CuratedCorpusTests(unittest.TestCase):
-    """data/curated_conjectures.json: workstream conjectures absent from OPG and arXiv."""
+class OthersCorpusTests(unittest.TestCase):
+    """data/others_conjectures.json: workstream conjectures absent from OPG and arXiv."""
 
     @classmethod
     def setUpClass(cls):
-        cls.records = json.loads((DATA / "curated_conjectures.json").read_text(encoding="utf-8"))
+        cls.records = json.loads((DATA / "others_conjectures.json").read_text(encoding="utf-8"))
         cls.opg_slugs = {p["slug"] for p in json.loads((DATA / "problems.json").read_text(encoding="utf-8"))}
         cls.arxiv_ids = _arxiv_review_ids()
 
@@ -140,7 +140,7 @@ class CuratedCorpusTests(unittest.TestCase):
                         self.fail(f"unknown corpus {rel['corpus']!r}")
 
     def test_reviews_are_well_formed(self):
-        reviews_dir = DATA / "curated_reviews"
+        reviews_dir = DATA / "others_reviews"
         if not reviews_dir.exists():
             self.skipTest("no reviews yet")
         ids = {r["id"] for r in self.records}

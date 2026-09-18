@@ -12,9 +12,9 @@ For one bm_id (a record in data/bondy_murty_conjectures.json):
 Same review schema as the arXiv pipeline (scraper/arxiv_review.py), so
 scraper/build.py attaches the result with the same code path.
 
-Also drives the hand-curated corpus (data/curated_conjectures.json, ids in `id`):
-    python scraper/bm_review.py --records data/curated_conjectures.json \
-        --out-dir data/curated_reviews --system-prompt scraper/curated_review_system_prompt.md --all
+Also drives the hand-written "others" corpus (data/others_conjectures.json, ids in `id`):
+    python scraper/bm_review.py --records data/others_conjectures.json \
+        --out-dir data/others_reviews --system-prompt scraper/others_review_system_prompt.md --all
 
 Usage
 -----
@@ -47,7 +47,7 @@ def _load_records(path: Path) -> list[dict]:
 
 
 def _rid(rec: dict) -> str:
-    """Record id: `bm_id` for Bondy–Murty items, `id` for curated records."""
+    """Record id: `bm_id` for Bondy–Murty items, `id` for "others" records."""
     return rec.get("bm_id") or rec.get("id") or ""
 
 
@@ -193,12 +193,12 @@ def review_one(rec: dict, out_dir: Path, model: str, dry_run: bool = False,
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--bm-id", help="Record id, e.g. bm-041 (or a curated `id` with --records)")
+    g.add_argument("--bm-id", help="Record id, e.g. bm-041 (or an `id` from another --records file)")
     g.add_argument("--all", action="store_true", help="Review every record without a review JSON")
     ap.add_argument("--records", type=Path, default=PROJECT / "data" / "bondy_murty_conjectures.json")
     ap.add_argument("--out-dir", type=Path, default=PROJECT / "data" / "bondy_murty_reviews")
     ap.add_argument("--system-prompt", type=Path, default=SYSTEM_PROMPT_PATH,
-                    help="system prompt file (use scraper/curated_review_system_prompt.md for curated records)")
+                    help="system prompt file (use scraper/others_review_system_prompt.md for the 'others' corpus)")
     ap.add_argument("--model",   default="claude-sonnet-4-6")
     ap.add_argument("--jobs",    type=int, default=1, help="parallel claude processes for --all")
     ap.add_argument("--dry-run", action="store_true", help="Print the composed prompt; do not call claude.")

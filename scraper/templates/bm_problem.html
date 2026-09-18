@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ p.title }} — Graph-theory open problems ({{ 'Bondy–Murty' if p._source == 'bm' else 'curated' }}){% endblock %}
+{% block title %}{{ p.title }} — Graph-theory open problems ({{ 'Bondy–Murty' if p._source == 'bm' else 'other' }}){% endblock %}
 
 {% block main %}
 <article class="problem {{ p._source }}">
@@ -11,7 +11,7 @@
   <p class="paper-label">{% if p.section %}{{ p.section }} · {% endif %}Research workstream: <a href="https://github.com/graph-theory-AI/graph-conjectures/tree/main/{{ p.workstream }}"><code>{{ p.workstream }}/</code></a></p>
   {% endif %}
   <div class="meta">
-    {% if p._source == 'bm' %}<span class="badge source source-bm">Bondy–Murty</span>{% else %}<span class="badge source source-curated">curated</span>{% endif %}
+    {% if p._source == 'bm' %}<span class="badge source source-bm">Bondy–Murty</span>{% else %}<span class="badge source source-others">others</span>{% endif %}
     <span class="kind">{{ p.kind }}</span>
     {% if p.attributed_year %}<span class="posted">— first stated {{ p.attributed_year }}</span>{% endif %}
   </div>
