@@ -100,12 +100,12 @@ def _review_with_known_resolution(review: dict | None, result: dict,
     resolution_ref = dict(existing)
     resolution_ref.update({
         "title": result.get("article_title", ""),
-        "authors": existing.get("authors", "See linked article"),
-        "year": existing.get("year") or article_year,
-        "venue": existing.get("venue", "Existing literature or final source version"),
+        "authors": result.get("article_authors") or existing.get("authors", "See linked article"),
+        "year": result.get("article_year") or existing.get("year") or article_year,
+        "venue": result.get("article_venue") or existing.get("venue", "Existing literature or final source version"),
         "url": article_url,
-        "doi": existing.get("doi"),
-        "arxiv_id": existing.get("arxiv_id"),
+        "doi": result.get("article_doi") or existing.get("doi"),
+        "arxiv_id": result.get("article_arxiv_id") or existing.get("arxiv_id"),
         "kind": "counterexample" if result.get("site_status") == "disproved" else "proof",
         "claim": result.get("one_line", ""),
         "_known_resolution": True,
@@ -596,6 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     n_reviews_attached = 0
     n_names_attached   = 0
     n_known_resolutions_attached = 0
+    matched_resolution_ids: set[str] = set()
     for s in arxiv_states:
         sid = s.get("safe_id") or s.get("arxiv_id","").replace("/","_")
         idx = counters.get(sid, 0)
@@ -627,15 +628,9 @@ def main(argv: list[str] | None = None) -> int:
                 s.get("_review"), s["_known_resolution"], llm_disclaimer,
             )
             n_known_resolutions_attached += 1
+            matched_resolution_ids.add(s["_review_id"])
     log.info("attached %d arxiv reviews and %d nice names to states records",
              n_reviews_attached, n_names_attached)
-    matched_resolution_ids = {
-        s["_review_id"] for s in arxiv_states if s.get("_known_resolution")
-    }
-    unmatched_resolutions = set(known_resolutions_by_id) - matched_resolution_ids
-    if unmatched_resolutions:
-        log.warning("known resolutions do not match arXiv records: %s", sorted(unmatched_resolutions))
-    log.info("attached %d known literature resolution(s)", n_known_resolutions_attached)
 
     # ── load Bondy–Murty Appendix A data (optional) ────────────────────────────
     bm_path        = args.data_dir / "bondy_murty_conjectures.json"
@@ -687,6 +682,20 @@ def main(argv: list[str] | None = None) -> int:
         else:
             prob["_erdos"] = None
         prob["_review"] = reviews.get(prob["slug"])
+        if prob["slug"] in known_resolutions_by_id:
+            prob["_known_resolution"] = known_resolutions_by_id[prob["slug"]]
+            prob["_review"] = _review_with_known_resolution(
+                prob.get("_review"), prob["_known_resolution"], llm_disclaimer,
+            )
+            n_known_resolutions_attached += 1
+            matched_resolution_ids.add(prob["slug"])
+
+    unmatched_resolutions = set(known_resolutions_by_id) - matched_resolution_ids
+    if unmatched_resolutions:
+        log.warning("known resolutions do not match catalog records: %s",
+                    sorted(unmatched_resolutions))
+    log.info("attached %d known literature resolution(s)",
+             n_known_resolutions_attached)
 
     n_attached = _attach_arxiv_matches_to_opg(
         problems, arxiv_matches, confirmed_only=args.confirmed_only,

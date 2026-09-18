@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Import literature resolutions found by Graph-Theory-LLM-Proofs."""
+"""Import literature resolutions found by Graph-Theory-LLM-Proofs.
+
+Only results whose resolution is attributable to existing literature are
+imported.  In particular, confirmed proofs or counterexamples produced by an
+LLM campaign are deliberately excluded.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,20 @@ REPOSITORY_URL = "https://github.com/graph-theory-AI/Graph-Theory-LLM-Proofs"
 DISPROVED_IDS = {
     "1407.5833__00", "1806.00825__01", "1905.12142__00",
     "2201.08204__01", "2208.06629__00", "2410.16495__00",
+    "2510.11311__04",
+}
+
+# These Astra referee verdicts say that the *entire catalog problem* had
+# already been settled in the literature before the campaign ran.  Do not add
+# 2402.10782__01: only its matching-FAS half was already known; its path-FAS
+# half is a campaign result and therefore must not change the site's status.
+ASTRA_ALREADY_KNOWN_IDS = {
+    "2510.11311__04",
+    "2603.02786__01",
+    "2603.02786__04",
+    "finding_k_edge_outerplanar_graph_embeddings",
+    "imbalance_conjecture",
+    "three_chromatic_0_2_graphs",
 }
 
 RESOLUTION_ARTICLES = {
@@ -41,7 +60,92 @@ RESOLUTION_ARTICLES = {
     "2401.06062__02": ("On prime Cayley graphs", "https://arxiv.org/abs/2401.06062"),
     "2410.13008__01": ("When all directed cycles have the same weight", "https://arxiv.org/abs/2601.12746"),
     "2410.16495__00": ("Every Graph is Essential to Large Treewidth", "https://arxiv.org/abs/2502.14775"),
+    "1701.03366__00": ("Additive bases and flows in graphs", "https://arxiv.org/abs/1701.03366"),
+    "2510.11311__04": ("Avoidability of Digraphs with Height Functions and Orientations of $C_4$", "https://arxiv.org/abs/2609.14368"),
+    "2603.02786__01": ("Asymptotically optimal packings of arithmetic progressions with prime differences", "https://arxiv.org/abs/2609.07487"),
+    "2603.02786__04": ("Solution to a conjecture of Alon, Dębski, Grytczuk and Przybyło on fixed-cardinality arithmetic progressions", "https://arxiv.org/abs/2607.06113"),
+    "finding_k_edge_outerplanar_graph_embeddings": ("Minimum Edge-Outerplanar Embeddings are Polynomial-Time Computable", "https://arxiv.org/abs/2607.08110"),
+    "imbalance_conjecture": ("A Proof of the Imbalance Conjecture", "https://arxiv.org/abs/2608.09191"),
+    "three_chromatic_0_2_graphs": ("Finite Three-Colourable (0,2)-Graphs Are Bipartite", "https://arxiv.org/abs/2607.10125"),
 }
+
+RESOLUTION_METADATA = {
+    "1701.03366__00": {
+        "article_authors": "Louis Esperet, Rémi de Joannis de Verclos, Tien-Nam Le, Stéphan Thomassé",
+        "article_year": 2018,
+        "article_venue": "SIAM Journal on Discrete Mathematics 32(1), 534–542",
+        "article_arxiv_id": "1701.03366",
+        "article_doi": "10.1137/17M1113758",
+        "one_line": "Corollary 13(iv) of the source paper proves that every directed 12-edge-connected graph has a $\\mathbb{Z}_5$-antisymmetric flow, directly establishing the requested constant.",
+    },
+    "2510.11311__04": {
+        "article_authors": "Hui Lei, Xiaoyi Wang, Zhijun Xu, Zhenyu Yang",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2609.14368",
+        "article_doi": None,
+        "one_line": "Lei, Wang, Xu, and Yang classify the Eulerian-avoidability of all orientations of $C_4$ and prove that the one-directed $K_{2,2}$ is not Eulerian-avoidable; hence not every orientation of $C_4$ is Eulerian-avoidable.",
+    },
+    "2603.02786__01": {
+        "article_authors": "Jianfeng Hou, Siyue Liu, Hongbin Zhao",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2609.07487",
+        "article_doi": None,
+        "one_line": "Hou, Liu, and Zhao prove $M_{\\mathbb{P}(n)}(n)=(\\frac16+o(1))n^3/\\ln n$, settling Conjecture 4 with its predicted constant.",
+    },
+    "2603.02786__04": {
+        "article_authors": "Yaping Mao, Zhao Wang, Meiqin Wei, Gang Yang",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2607.06113",
+        "article_doi": None,
+        "one_line": "Mao, Wang, Wei, and Yang prove $M_k(n)=(1+o(1))nk$ for every fixed $n$, confirming Conjecture 7.",
+    },
+    "finding_k_edge_outerplanar_graph_embeddings": {
+        "article_authors": "Hantao Yu",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2607.08110",
+        "article_doi": None,
+        "one_line": "Yu proves that the minimum edge-outerplanarity of a planar graph can be computed in polynomial time, answering Bentz's question affirmatively.",
+    },
+    "imbalance_conjecture": {
+        "article_authors": "James Alexander Schreib, Yousof Yavari",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2608.09191",
+        "article_doi": None,
+        "one_line": "Schreib and Yavari prove that the positive imbalance multiset $M_G$ is graphic, establishing the imbalance conjecture in full.",
+    },
+    "three_chromatic_0_2_graphs": {
+        "article_authors": "Christopher Williamson",
+        "article_year": 2026,
+        "article_venue": "arXiv preprint",
+        "article_arxiv_id": "2607.10125",
+        "article_doi": None,
+        "one_line": "Williamson proves that every finite three-colourable $(0,2)$-graph is bipartite; consequently no finite $(0,2)$-graph has chromatic number exactly three.",
+    },
+}
+
+
+def _result(review_id: str, attack: dict, audit_url: str) -> dict:
+    article_title, article_url = RESOLUTION_ARTICLES[review_id]
+    metadata = RESOLUTION_METADATA.get(review_id, {})
+    result = {
+        "id": review_id,
+        "site_status": "disproved" if review_id in DISPROVED_IDS else "solved",
+        "confidence": attack.get("confidence", "unknown"),
+        "one_line": metadata.get("one_line", attack.get("one_line", "")),
+        "caveats": metadata.get("caveats", "") if metadata else attack.get("caveats", ""),
+        "model": attack.get("model", ""),
+        "assessed_at": attack.get("when", ""),
+        "article_title": article_title,
+        "article_url": article_url,
+        "audit_url": audit_url,
+    }
+    result.update({k: v for k, v in metadata.items() if k.startswith("article_")})
+    return result
 
 
 def collect_known_resolutions(source_dir: Path) -> dict:
@@ -58,19 +162,51 @@ def collect_known_resolutions(source_dir: Path) -> dict:
             raise ValueError(
                 f"verdict id {review_id!r} does not match {verdict_path.parent.name!r}"
             )
-        article_title, article_url = RESOLUTION_ARTICLES[review_id]
-        results.append({
-            "id": review_id,
-            "site_status": "disproved" if review_id in DISPROVED_IDS else "solved",
-            "confidence": attack.get("confidence", "unknown"),
-            "one_line": attack.get("one_line", ""),
-            "caveats": attack.get("caveats", ""),
-            "model": attack.get("model", ""),
-            "assessed_at": attack.get("when", ""),
-            "article_title": article_title,
-            "article_url": article_url,
-            "audit_url": f"{REPOSITORY_URL}/tree/main/attacks/{review_id}",
-        })
+        results.append(_result(
+            review_id,
+            attack,
+            f"{REPOSITORY_URL}/tree/main/attacks/{review_id}",
+        ))
+
+    # The Astra arXiv sweep also caught a status error directly: the source
+    # paper itself proves its displayed informal conjecture later in the text.
+    astra_attacks_dir = source_dir / "attacks_arxiv_astra"
+    astra_id = "1701.03366__00"
+    astra_verdict_path = astra_attacks_dir / astra_id / "verdict.json"
+    attack = json.loads(astra_verdict_path.read_text(encoding="utf-8"))
+    if attack.get("verdict") != "already_resolved":
+        raise ValueError(f"expected {astra_id} to be already_resolved")
+    results.append(_result(
+        astra_id,
+        attack,
+        f"{REPOSITORY_URL}/tree/main/attacks_arxiv_astra/{astra_id}",
+    ))
+
+    # Import only full-problem ALREADY_KNOWN verdicts from the Astra referee
+    # pass.  The allowlist above intentionally excludes partial prior art.
+    referee_path = source_dir / "verification_astra" / "verdicts.json"
+    referee_doc = json.loads(referee_path.read_text(encoding="utf-8"))
+    referee_by_id = {
+        item["id"]: item for item in referee_doc.get("verdicts", [])
+        if item.get("review_verdict") == "ALREADY_KNOWN"
+    }
+    missing = ASTRA_ALREADY_KNOWN_IDS - set(referee_by_id)
+    if missing:
+        raise ValueError(f"missing Astra ALREADY_KNOWN verdicts: {sorted(missing)}")
+    for review_id in sorted(ASTRA_ALREADY_KNOWN_IDS):
+        referee = referee_by_id[review_id]
+        attack_path = source_dir / referee["leg"] / review_id / "verdict.json"
+        attack = json.loads(attack_path.read_text(encoding="utf-8"))
+        results.append(_result(
+            review_id,
+            attack,
+            f"{REPOSITORY_URL}/blob/main/verification_astra/{review_id}.md",
+        ))
+
+    results.sort(key=lambda result: result["id"])
+    result_ids = [result["id"] for result in results]
+    if len(result_ids) != len(set(result_ids)):
+        raise ValueError("duplicate known-resolution ids")
 
     return {
         "schema_version": 2,
