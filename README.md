@@ -25,6 +25,13 @@ to the existing article credited for the resolution and a separate link to the
 automated audit. No model-generated proof is promoted to `solved`. Refresh the
 data from sibling checkouts with `python scripts/sync_llm_proof_results.py`.
 
+The same import exposes only PDF write-ups that are listed in that repository's
+README and received a `CONFIRMED` referee verdict. Results marked `MINOR_GAPS`
+are excluded. These model-generated results use the separate `ai-proved` or
+`ai-disproved` labels and link the corresponding PDF. If the literature already
+settles the problem, the ordinary literature status takes precedence while the
+AI artifact remains available on the detail page.
+
 **Four corpora, one merged index:**
 
 | corpus | count | scope |
@@ -36,13 +43,15 @@ data from sibling checkouts with `python scripts/sync_llm_proof_results.py`.
 
 Reviewed status counts:
 
-| status    | OPG  | arXiv | Bondy–Murty | meaning                                                   |
-|-----------|-----:|------:|------------:|------------------------------------------------------------|
-| open      |   55 |   536 |          13 | no significant progress found in literature search         |
-| partial   |  136 |   118 |          21 | progress since posting (special cases, weakened version)   |
-| solved    |   22 |    83 |           3 | fully proved by a follow-up paper                          |
-| disproved |   13 |    22 |           1 | counterexample found                                       |
-| unclear   |    1 |     3 |           0 | insufficient information to decide                         |
+| status        | OPG  | arXiv | Bondy–Murty | meaning                                                 |
+|---------------|-----:|------:|------------:|----------------------------------------------------------|
+| open          |   51 |   518 |          13 | no significant progress found in literature search       |
+| partial       |  136 |   118 |          21 | progress since posting                                   |
+| ai-proved     |    1 |    10 |           0 | confirmed model-generated proof artifact                 |
+| ai-disproved  |    3 |     8 |           0 | confirmed model-generated counterexample/disproof        |
+| solved        |   22 |    83 |           3 | fully proved in the literature                            |
+| disproved     |   13 |    22 |           1 | counterexample in the literature                          |
+| unclear       |    1 |     3 |           0 | insufficient information to decide                       |
 
 **44 of the arXiv-extracted records** were also identified as direct progress
 on existing OPG problems and attached as citations on those OPG pages (e.g. on

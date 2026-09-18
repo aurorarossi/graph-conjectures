@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Import literature resolutions found by Graph-Theory-LLM-Proofs.
+"""Import literature resolutions and reviewed AI write-ups.
 
-Only results whose resolution is attributable to existing literature are
-imported.  In particular, confirmed proofs or counterexamples produced by an
-LLM campaign are deliberately excluded.
+Literature resolutions and model-generated arguments remain separate: only
+the former receive the ordinary ``solved`` / ``disproved`` statuses.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 
@@ -21,10 +21,9 @@ DISPROVED_IDS = {
     "2510.11311__04",
 }
 
-# These Astra referee verdicts say that the *entire catalog problem* had
-# already been settled in the literature before the campaign ran.  Do not add
-# 2402.10782__01: only its matching-FAS half was already known; its path-FAS
-# half is a campaign result and therefore must not change the site's status.
+# Full-problem Astra referee verdicts whose result was already in the
+# literature.  2402.10782__01 is deliberately absent: prior art covers only
+# one half of that two-part problem.
 ASTRA_ALREADY_KNOWN_IDS = {
     "2510.11311__04",
     "2603.02786__01",
@@ -83,7 +82,6 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2609.14368",
-        "article_doi": None,
         "one_line": "Lei, Wang, Xu, and Yang classify the Eulerian-avoidability of all orientations of $C_4$ and prove that the one-directed $K_{2,2}$ is not Eulerian-avoidable; hence not every orientation of $C_4$ is Eulerian-avoidable.",
     },
     "2603.02786__01": {
@@ -91,7 +89,6 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2609.07487",
-        "article_doi": None,
         "one_line": "Hou, Liu, and Zhao prove $M_{\\mathbb{P}(n)}(n)=(\\frac16+o(1))n^3/\\ln n$, settling Conjecture 4 with its predicted constant.",
     },
     "2603.02786__04": {
@@ -99,7 +96,6 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2607.06113",
-        "article_doi": None,
         "one_line": "Mao, Wang, Wei, and Yang prove $M_k(n)=(1+o(1))nk$ for every fixed $n$, confirming Conjecture 7.",
     },
     "finding_k_edge_outerplanar_graph_embeddings": {
@@ -107,7 +103,6 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2607.08110",
-        "article_doi": None,
         "one_line": "Yu proves that the minimum edge-outerplanarity of a planar graph can be computed in polynomial time, answering Bentz's question affirmatively.",
     },
     "imbalance_conjecture": {
@@ -115,7 +110,6 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2608.09191",
-        "article_doi": None,
         "one_line": "Schreib and Yavari prove that the positive imbalance multiset $M_G$ is graphic, establishing the imbalance conjecture in full.",
     },
     "three_chromatic_0_2_graphs": {
@@ -123,13 +117,12 @@ RESOLUTION_METADATA = {
         "article_year": 2026,
         "article_venue": "arXiv preprint",
         "article_arxiv_id": "2607.10125",
-        "article_doi": None,
         "one_line": "Williamson proves that every finite three-colourable $(0,2)$-graph is bipartite; consequently no finite $(0,2)$-graph has chromatic number exactly three.",
     },
 }
 
 
-def _result(review_id: str, attack: dict, audit_url: str) -> dict:
+def _known_result(review_id: str, attack: dict, audit_url: str) -> dict:
     article_title, article_url = RESOLUTION_ARTICLES[review_id]
     metadata = RESOLUTION_METADATA.get(review_id, {})
     result = {
@@ -148,6 +141,86 @@ def _result(review_id: str, attack: dict, audit_url: str) -> dict:
     return result
 
 
+def _pdf_target_id(pdf_path: Path) -> str:
+    match = re.match(r"^(\d+\.\d+__\d+|.+?)__", pdf_path.name)
+    if not match:
+        raise ValueError(f"cannot determine catalog id from PDF name: {pdf_path.name}")
+    return match.group(1)
+
+
+def collect_ai_writeups(source_dir: Path) -> list[dict]:
+    """Collect README-listed PDF artifacts with a confirmed referee verdict."""
+    readme = (source_dir / "README.md").read_text(encoding="utf-8")
+    readme_pdf_paths = sorted(set(re.findall(
+        r"\((to_review(?:_astra)?/[^)]+\.pdf)\)",
+        readme,
+    )))
+    if not readme_pdf_paths:
+        raise ValueError("no reviewed PDF links found in source README")
+
+    campaigns = {
+        "to_review": ("verification/verdicts.json", "initial"),
+        "to_review_astra": (
+            "verification_astra/verdicts.json",
+            "astra",
+        ),
+    }
+    verdicts_by_campaign = {
+        pdf_dir_name: {
+            item["id"]: item
+            for item in json.loads(
+                (source_dir / verdicts_name).read_text(encoding="utf-8")
+            ).get("verdicts", [])
+        }
+        for pdf_dir_name, (verdicts_name, _) in campaigns.items()
+    }
+
+    writeups = []
+    for relative_pdf_path in readme_pdf_paths:
+        pdf_path = source_dir / relative_pdf_path
+        if not pdf_path.is_file():
+            raise FileNotFoundError(f"README-linked PDF not found: {pdf_path}")
+        pdf_dir_name = pdf_path.parent.name
+        if pdf_dir_name not in campaigns:
+            raise ValueError(f"unsupported README PDF directory: {pdf_dir_name}")
+        _, campaign = campaigns[pdf_dir_name]
+        review_id = _pdf_target_id(pdf_path)
+        verdicts = verdicts_by_campaign[pdf_dir_name]
+        if review_id not in verdicts:
+            raise ValueError(f"no referee verdict for {pdf_path}")
+        referee = verdicts[review_id]
+        if referee.get("review_verdict") != "CONFIRMED":
+            continue
+        claimed_verdict = referee.get("claimed_verdict")
+        if claimed_verdict not in {"proved", "disproved"}:
+            raise ValueError(
+                f"PDF {pdf_path.name} has unsupported verdict {claimed_verdict!r}"
+            )
+        leg = referee.get("leg", "attacks")
+        attack = json.loads(
+            (source_dir / leg / review_id / "verdict.json").read_text(encoding="utf-8")
+        )
+        writeups.append({
+            "id": review_id,
+            "site_status": f"ai-{claimed_verdict}",
+            "promote_status": True,
+            "claimed_verdict": claimed_verdict,
+            "review_verdict": "CONFIRMED",
+            "confidence": referee.get("confidence", "unknown"),
+            "one_line": referee.get("claimed_one_line") or attack.get("one_line", ""),
+            "model": attack.get("model", ""),
+            "assessed_at": attack.get("when", ""),
+            "campaign": campaign,
+            "pdf_url": f"{REPOSITORY_URL}/blob/main/{relative_pdf_path}",
+        })
+
+    writeups.sort(key=lambda result: result["id"])
+    ids = [result["id"] for result in writeups]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate AI-writeup ids")
+    return writeups
+
+
 def collect_known_resolutions(source_dir: Path) -> dict:
     attacks_dir = source_dir / "attacks"
     if not attacks_dir.is_dir():
@@ -162,30 +235,26 @@ def collect_known_resolutions(source_dir: Path) -> dict:
             raise ValueError(
                 f"verdict id {review_id!r} does not match {verdict_path.parent.name!r}"
             )
-        results.append(_result(
+        results.append(_known_result(
             review_id,
             attack,
             f"{REPOSITORY_URL}/tree/main/attacks/{review_id}",
         ))
 
-    # The Astra arXiv sweep also caught a status error directly: the source
-    # paper itself proves its displayed informal conjecture later in the text.
-    astra_attacks_dir = source_dir / "attacks_arxiv_astra"
     astra_id = "1701.03366__00"
-    astra_verdict_path = astra_attacks_dir / astra_id / "verdict.json"
+    astra_verdict_path = source_dir / "attacks_arxiv_astra" / astra_id / "verdict.json"
     attack = json.loads(astra_verdict_path.read_text(encoding="utf-8"))
     if attack.get("verdict") != "already_resolved":
         raise ValueError(f"expected {astra_id} to be already_resolved")
-    results.append(_result(
+    results.append(_known_result(
         astra_id,
         attack,
         f"{REPOSITORY_URL}/tree/main/attacks_arxiv_astra/{astra_id}",
     ))
 
-    # Import only full-problem ALREADY_KNOWN verdicts from the Astra referee
-    # pass.  The allowlist above intentionally excludes partial prior art.
-    referee_path = source_dir / "verification_astra" / "verdicts.json"
-    referee_doc = json.loads(referee_path.read_text(encoding="utf-8"))
+    referee_doc = json.loads(
+        (source_dir / "verification_astra" / "verdicts.json").read_text(encoding="utf-8")
+    )
     referee_by_id = {
         item["id"]: item for item in referee_doc.get("verdicts", [])
         if item.get("review_verdict") == "ALREADY_KNOWN"
@@ -195,9 +264,12 @@ def collect_known_resolutions(source_dir: Path) -> dict:
         raise ValueError(f"missing Astra ALREADY_KNOWN verdicts: {sorted(missing)}")
     for review_id in sorted(ASTRA_ALREADY_KNOWN_IDS):
         referee = referee_by_id[review_id]
-        attack_path = source_dir / referee["leg"] / review_id / "verdict.json"
-        attack = json.loads(attack_path.read_text(encoding="utf-8"))
-        results.append(_result(
+        attack = json.loads(
+            (source_dir / referee["leg"] / review_id / "verdict.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        results.append(_known_result(
             review_id,
             attack,
             f"{REPOSITORY_URL}/blob/main/verification_astra/{review_id}.md",
@@ -209,7 +281,7 @@ def collect_known_resolutions(source_dir: Path) -> dict:
         raise ValueError("duplicate known-resolution ids")
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "source_repository": REPOSITORY_URL,
         "disclaimer": (
             "These status corrections report results attributed to existing papers "
@@ -217,6 +289,7 @@ def collect_known_resolutions(source_dir: Path) -> dict:
             "checked the implication; it is not credited as the author of the result."
         ),
         "results": results,
+        "ai_results": collect_ai_writeups(source_dir),
     }
 
 
@@ -233,7 +306,10 @@ def main() -> int:
     args.output.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    print(f"wrote {len(payload['results'])} known resolution(s) to {args.output}")
+    print(
+        f"wrote {len(payload['results'])} known resolution(s) and "
+        f"{len(payload['ai_results'])} AI write-up(s) to {args.output}"
+    )
     return 0
 
 
